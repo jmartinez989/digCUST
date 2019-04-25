@@ -1,0 +1,10 @@
+CSV output for accounts associated with vrf [|vrf|]
+
+Results include ONLY on-net IP-addressed MPLS interfaces in Cisco and Juniper devices using vrf '[|vrf|]' and MAY be incomplete and/or possibly inaccurate. Please also be aware that due to the fact that some enid management interfaces may have the customer's vrf name applied to them in their QoS you may get those interfaces as part of the search results. Those interfaces are donted with having the term TDNVPN for their vrf.
+Results are current as of [|date|]
+
+Copy the following results into Excel, select Data tab, Text To Columns option, select Delimited, checkmark only the Comma box, select Finish.
+
+A true export option is coming Soon(ish)!
+
+PE Name:,Interface Name:,Account Number/Ckt ID:,Description:,VRF Name:,WAN Interface IP Block:,Static Routed LAN IP Block(s):,Egress QoS Policy:,Interface Admin Status as of [|date|]

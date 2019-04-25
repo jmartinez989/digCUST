@@ -1,0 +1,16 @@
+Usage: digCUST.sh [options] "search term". The options can be in any order and can come before or after the search term (which
+is usually the account number of the customer but can be a regular expression). Below are the options available:
+
+    -h or -help or -? (spelling for -help can be just -h or -he or -hel or -help and mixing case is allowed)
+        Displays this usage message. If you use this option all other arguments are ignored not matter what order they are
+        supplied. Also note that providing any of the below options without providing a search term will default to displaying
+        this usage message as well.
+    -csv (this flag is case insensitive so can be -csv or -CSV or -Csv etc...)
+        Flags digCUST to display output in raw csv format for a customer vrf. This will expect that the search term
+        is a valid vrf tag (must be an exact match, vrf tags are case sensitive).
+    
+    -private:[vrftag]
+        Flags digCUST to search the database with the given ip and vrf tag (you will need to use the actual vrf tag in
+        place of [vrftag]). This will allow the use of RFC1918 routes.
+
+*RFC1918 routes are 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16

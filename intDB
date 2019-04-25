@@ -1,0 +1,92 @@
+#!/bin/bash
+
+#####################################################
+# Constants to define directories where the resources
+# will reside.
+#####################################################
+DIGCUSTDIR="/home/e0163688/Scripts/DigCust"
+LOOKDB="$DIGCUSTDIR/digCUST.db"
+CONFIGDIRIOS="/home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs"
+CONFIGDIRXR="/home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs"
+CONFIGDIRJUNIPER="/home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs"
+IOSDB="$DIGCUSTDIR/iosrouters.db"
+XRDB="$DIGCUSTDIR/xrrouters.db"
+JUNIPERDB="$DIGCUSTDIR/juniperrouters.db"
+MOVESCRIPT="$DIGCUSTDIR/movedigcust"
+#####################################################
+# Synchronization and cleanup of config files.
+#####################################################
+echo "Creating temporary database file...."
+> "${LOOKDB}-tmp"
+
+echo -e "\nSynchronizing cisco-ios configs..."
+cp -r /opt/rancid/var/cisco-ios/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/
+
+echo -e "\nSynchronizing cisco-xr configs..."
+cp -r /opt/rancid/var/cisco-xr/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/
+
+echo -e "\nSynchronizing juniper configs..."
+cp -r /opt/rancid/var/juniper/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/
+
+echo -e "\nSynchronizing alu configs...\n"
+cp -r /opt/rancid/var/alu-7750/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs
+
+echo -e "Cleaning up unneeded files in configuration directories...\n\n"
+
+rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs/tmp
+
+rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs/tmp
+
+rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/tmp /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/fixed
+
+rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs/tmp
+
+#####################################################
+# Creating db files for routers that are up.
+#####################################################
+sed 's/;.*//g' /opt/rancid/var/cisco-ios/routers.up > $IOSDB
+sed 's/;.*//g' /opt/rancid/var/cisco-xr/routers.up > $XRDB
+sed 's/;.*//g' /opt/rancid/var/juniper/routers.up > $JUNIPERDB
+
+#####################################################
+# Running the scrapers on the next 3 loops
+#####################################################
+
+echo -e "Stating digCUST database build...\n"
+
+cat $IOSDB | while read line
+do
+   echo Processing file "$CONFIGDIRIOS/"$line"...."
+   /home/e0163688/Scripts/DigCust/cisco-ios.awk "$CONFIGDIRIOS/"$line
+   echo
+done
+
+cat $XRDB | while read line
+do
+   echo Processing file "$CONFIGDIRXR/"$line"...."
+   /home/e0163688/Scripts/DigCust/cisco-xr.awk "$CONFIGDIRXR/"$line
+   echo
+done
+
+cat $JUNIPERDB | while read line
+do
+     echo Processing file "$CONFIGDIRJUNIPER/"$line
+    /home/e0163688/Scripts/DigCust/juniper.awk "$CONFIGDIRJUNIPER/"$line
+    echo
+done
+
+#####################################################
+# Copy temp file over to main file and clean up.
+#####################################################
+echo -e "\nCopying temporary file to database file and deleting temp file..."
+cat "${LOOKDB}-tmp" | sort | uniq > $LOOKDB
+rm "${LOOKDB}-tmp"
+
+#####################################################
+# This part is going to move digCUST development
+# boxes so that it can be used for the web interface
+# of digCUST. Moved this process to a separate script
+# so that modifications can be made to the moving of
+# files without having to alter this script.
+#####################################################
+$MOVESCRIPT

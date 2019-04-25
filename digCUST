@@ -1,0 +1,699 @@
+#!/bin/bash
+#################################################################################
+# CONSTANTS
+#################################################################################
+
+#This variable declaratoin is spread accross multiple lines to make formatting in this file easier to read.
+#If not done this way the declaration would look very long and hard to read.
+IPREGEX="^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+IPREGEX="$IPREGEX(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+IPREGEX="$IPREGEX(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+IPREGEX="$IPREGEX(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\$"
+
+#The directory for all files and porgrams this script will run.
+DIGCUSTDIR="/home/e0163688/Scripts/DigCust"
+
+#The digCUST database file.
+DIGCUSTDB="$DIGCUSTDIR/digCUST.db"
+#DIGCUSTDB="/opt/home/digtools/digCUST.db.bak_colons"
+
+#This is the script that is run if the -csv flag is passed in.
+CSVGREET="$DIGCUSTDIR/printgreet.awk"
+
+#This is the file that the csv script will read in to print out the greeting.
+GREETFILE="$DIGCUSTDIR/csvgreet"
+
+#The digCUST awk script that will display the results of the search if there are any.
+DIGCUST="$DIGCUSTDIR/digCUST.awk"
+
+#The awk script used to determine if the vrf provided is valid.
+CHECKVRF="$DIGCUSTDIR/checkvrf.awk"
+
+#The file where the program usage text is stored.
+USAGEFILE="$DIGCUSTDIR/usagefile"
+
+#################################################################################
+# GLOBALS
+#################################################################################
+
+#This will determine if the -csv flag was given.
+csv=0
+
+#This will determine if the -public option has been passed.
+publicOption=0
+
+#This will determine if the -private option has been passed. If it has been passed
+#this variable will be set to the value of the option passed in (meaning it will
+#be set to -private:*vrftag* so that the VRF tag can be extracted).
+privateOption=0
+
+#This will be used to hold the value that was passed along with the -private switch.
+privateOptionString=""
+
+#This will be the search field that will be given by the user.
+searchField=""
+
+#This will hold the results from the search using the searchField.
+searchResult=""
+
+#Flag to determine if output should be raw (straight from DB. Users will not be
+#made aware of this option).
+rawOutput=0
+
+#Flag to determine if output should be formatted for web dispaly (straight from DB.
+#Users will not be made aware of this option).
+webOutput=0
+
+#Flag to determine if ascii formatting should be used (users will not be made
+#aware of this flag, this is only for any webscripts that run.)
+noAscii=0
+#################################################################################
+# FUNCTIONS
+#################################################################################
+
+
+
+
+#################################################################################
+# function main()
+#
+# Parameters: All arguments passed into script
+#
+# The main function that sets the flow of the whole script.
+function main() {
+    #Check all of the arguments for vailidity.
+    checkInput $*
+
+    #This gets the date that the digCUST database file was modified.
+    statDate=$( stat -c %y $DIGCUSTDB | awk '{ print $1 }' )
+
+    #If the -csv flag was given then run proper csv processing.
+    if (( $csv ))
+    then
+        processCSV
+    elif (( $publicOption ))
+    then
+        [[ $searchField =~ $IPREGEX ]] && routePublic || printError "Invalid ip address $searchField."
+    elif (( $privateOption ))
+    then
+        if [[ $searchField =~ $IPREGEX ]]
+        then
+            local vrfTag=$( echo "$privateOptionString" | sed 's/-private:\(.*\)/\1/g' )
+            routePrivate $vrfTag
+        else 
+            printError "Invalid ip address $searchField."
+        fi
+    else
+        searchResult=$( egrep "$searchField" $DIGCUSTDB )
+    fi
+
+    if [[ $searchResult ]]
+    then
+        if (( $rawOutput ))
+        then
+            echo $searchResult | sed 's/\" \"/\"\n\"/g'
+        else
+            if ! (( $csv ))
+            then
+	        echo "On-Net Customer Query of network devices :: Current as of" $statDate
+	        echo "===================================================================="
+	        echo
+            fi
+        
+            echo "$searchResult" | $DIGCUST -F":::" -v csv=$csv -v noascii=$noAscii -v web=$webOutput
+        fi
+    else
+        echo "No results found for search term: $searchField"
+    fi
+}
+# function main()
+#################################################################################
+
+
+
+
+#################################################################################
+# function usage()
+#
+# Parameters: None
+#
+# A simple function to display the proper usage of the script. All it does is just
+# displays the contents of the file "usagefile" located in this script's directory .
+function usage() {
+    if ! (( $webOutput ))
+    then
+        echo
+        cat $USAGEFILE
+        echo
+    fi
+
+    exit
+    
+}
+# end function usage()
+#################################################################################
+
+
+
+
+#################################################################################
+# function checkForHelpOption()
+#
+# Parameters:
+#    $* [All command line arguments to script]: This function will have the entire
+#    list of arguments passed into the script passed onto it. It will check all of
+#    the arguments passed in to see if there is a help flag in the list. If there
+#    is then then the function will just display the usage of the script which will
+#    end up ignoring all other arguments.
+function checkForHelpOption() {
+    #REGEX string that matches upon any compination
+    local HELPOPTIONREGEX="([hH]([eE][lL][pP])*|[hH][eE]([lL][pP])*|"
+    HELPOPTIONREGEX="$HELPOPTIONREGEX[hH][eE][lL]([pP])*|[hH][eE][lL][pP]|\?)"
+
+    local options=$( echo $* )
+    local option=""
+
+    for option in $options
+    do
+        if [[ $option =~ ^(\?|\-$HELPOPTIONREGEX)$ ]]
+        then
+            usage
+        fi
+    done
+}
+# end function checkForHelpOption()
+#################################################################################
+
+
+
+
+#################################################################################
+# function checkInput()
+#
+# Parameters:
+#    $* [All command line arguments to script]: This function will have the entire
+#    list of arguments passed into the script passed onto it. It checks all of the
+#    arguments for validity and will display the usage if there is an invalid argument.
+function checkInput() {
+    #REGEX for matching agains tthe -private option
+    local PRIVATEREGEX="^\-private:[^ ]+$"
+
+    #REGEX for matching against the -csv option
+    local CSVREGEX="(^| )\-[Cc][Ss][Vv]($| )"
+
+    #REGEX for raw option.
+    local RAWREGEX="(^| )\-[rR][aA][wW]($| )"
+
+    #REGEX for noascii option
+    local NOASCIIREGEX="(^| )\-[nN][oO][aA][sS][cC][iI][iI]($| )"
+
+    #REGEX for web output.
+    local WEBREGEX="(^| )\-[wW][eE][bB]($| )"
+
+    #REGEX for matching all options simultaniously.
+    local ALLOPTIONSREGEX="$PRIVATEREGEX|$CSVREGEX|$NOASCIIREGEX|$RAWREGEX|$WEBREGEX"
+
+    #In this section we want to check for any switches that will need to be processed
+    #before all others no matter the order so the argument list is checked and the appropriate
+    #switch variable is set appropriately.
+    [[ $* =~ $NOASCIIREGEX ]] && noAscii=1
+    [[ $* =~ $RAWREGEX ]] && rawOutput=1
+    [[ $* =~ $WEBREGEX ]] && webOutput=1
+    [[ $* =~ $CSVREGEX ]] && csv=1
+
+    #If no arguments passed then display usage.
+    if (( $# == 0 ))
+    then
+        usage
+    #If there is only one argument then that will be assumed to be the search field (unless
+    #of course the only argument passed is the -csv flag with no other arguments. In that
+    #case the user is reminded of the usage).
+    fi
+
+    #Checks to see if the -help or -? flags have been passed.
+    checkForHelpOption "$*"
+
+    if (( $# == 1 ))
+    then
+        if [[ $* =~ $WEBREGEX ]]
+        then
+            webOutput=0
+            usage
+        elif [[ $1 =~ $ALLOPTIONSREGEX ]]
+        then
+            usage
+        elif [[ $1 =~ $IPREGEX ]]
+        then
+            publicOption=1
+            searchField=$1
+        elif [[ $1 =~ ^\-.*$ ]]
+        then
+            printError "Invalid option: $1"
+        else
+            searchField=$1
+        fi
+    #This is the case where 2 arguments are passed. The usage file for this program describes
+    #the available options for this program. The pattern matches below are self explanitory.
+    elif (( $# >= 2 ))
+    then
+        while (( $# > 0 ))
+        do
+            if [[ $1 =~ $CSVREGEX ]]
+            then
+                if (( $rawOutput || $webOutput ))
+                then
+                    printError "Cannot combine options -csv with either -raw or -web."
+                fi
+                
+                shift
+
+                if (( $# > 0 ))
+                then
+                    if [[ $1 =~ $ALLOPTIONSREGEX ]]
+                    then
+                        shift
+                    else
+                    	searchField=$1
+                    	shift
+                    fi
+                fi
+            elif [[ $1 =~ $IPREGEX ]]
+            then
+                if (( $privateOption ))
+                then
+                    publicOption=0
+                else
+                    publicOption=1
+                fi
+                
+                if (( $# > 0 ))
+                then
+                    if [[ $1 =~ $ALLOPTIONSREGEX ]]
+                    then
+                        shift
+                    else
+                    	searchField=$1
+                    	shift
+                    fi
+                fi
+            elif [[ $1 =~ $PRIVATEREGEX ]]
+            then
+                privateOption=1
+                privateOptionString=$1
+
+                if (( $publicOption ))
+                then
+                    publicOption=0
+                fi
+
+                if (( $# > 0))
+                then
+                    if [[ $1 =~ $ALLOPTIONSREGEX ]]
+                    then
+                        shift
+                    else
+                    	searchField=$1
+                    	shift
+                    fi
+                fi
+            elif [[ $1 =~ $RAWREGEX ]]
+            then
+                if (( $webOutput ))
+                then
+                    webOutput=0
+                fi
+                
+                if (( $csv ))
+                then
+                    printError "Cannot combine options -csv with either -raw or -web."
+                fi
+
+                shift
+            #In this case there is nothing to be done as the option would have been set from the
+            #check above so just skip this argument.
+            elif [[ $1 =~ $NOASCIIREGEX ]]
+            then
+                shift
+            elif [[ $1 =~ $WEBREGEX ]]
+            then
+                #Want to give highest precedence of output to raw so if the raw option was used
+                #then just unset the webOutput option.
+                if (( $rawOutput ))
+                then
+                    webOutput=0
+                fi
+
+                shift
+            elif [[ $1 =~ ^\-.*$ ]]
+            then
+                printError "Invalid option: $1"
+            #If the searchfield was already set (a non option argument would cause it to get set) 
+            #and another non option argument is passed then the user is alerted of the error.
+            elif [[ $searchField ]]
+            then
+                printError "Too many non-option arguments provided. Please try your search again"
+            else
+                searchField=$1
+                shift
+            fi
+        done
+
+        #In the case that all arguments were processed and the searchField is still blank it would
+        #indicate that only options were passed in so just display the error.
+        if [[ ! $searchField ]]
+        then
+            printError "All arguments were options. Please try your search again."
+        fi
+    #In the case that there is more than 2 arguments supplied then the user is alerted of this and
+    #reminded of the usage.
+    else
+        printError "Too many non-option arguments provided. Please try your search again."
+    fi
+}
+# end function checkInput()
+#################################################################################
+
+#################################################################################
+# function processCSV()
+#
+# Parameters: None
+#
+# This function will take the part of getting the input that will be passed to the
+# digCUST.awk script. The -csv flag is used to get all accounts based on a vrf tag
+# for a customer and also find any interfaces that have a public side to them (if
+# an interfaace has a vrf and is either part of an MFR or is an ethernet circuit
+# with both internet and MPLS). Once it aquires all of these it passes them to
+# digCUST.awk.
+function processCSV() {
+    ######################################################################
+    # LOCAL CONSTANTS
+    #
+    # All of the constants are going to be regular expression patterns to
+    # match agianst the interface of a record that is acquired from the
+    # variable tempSearchResult. This will be for any interfaces that have
+    # a vrf associated with them that might also have an internet interface
+    # associated on the same account. The cases this will be true are if
+    # the interface is either an MFR, a frame relay Serial, or a GigE or
+    # TenGigE interface.
+    ######################################################################
+    local MFRIOS="MFR[0-9]+\."
+    local SERIALFRIOS="Serial[0-9]/[0-9]/[0-9]/[0-9]{1,2}:[0-9]{1,2}\.[0-9]+"
+    local MFRXR="Multilink[0-9]/[0-9]/[0-9]/[0-9]/[0-9]+9\."
+    local SERIALFRXR="Serial[0-9]/[0-9]/[0-9]/[0-9]/[0-9]/[0-9]+:[0-9]+\."
+    
+    #[spiercecomment]
+    #11-8-2017 - Added ge- and xe- interfaces to the GIGE pattern for Juniper support, added the CKTID pattern.
+    local GIGE="(^TenGigE|^TenGigabitEthernet|^GigabitEthernet|^ge-|^xe-)" 
+    local CKTID="([A-Za-z0-9]{2,3}[ ./][A-Za-z0-9]{4}[ ./][0-9]{3,6}[ ./]{1,3}[A-Za-z0-9]{2,4})"
+    #[/spiercecomment]
+
+    ######################################################################
+    # LOCAL VARIABLES
+    ######################################################################
+    #This variable will be used for storing the lines acquired from the variable
+    #tempSearchResult one by one.
+    local line=""
+    #This will an array of the fields in the vraible line. The fields will be
+    #delimited by the character sequence ":::"
+    local fields=
+    #This will store the interface field from the fields array.
+    local interface=""
+    #After determining what type of interface the current record has the digCUST
+    #database has to be searched again using the edge router host name and the
+    #account number tied to the interface. This will give us all of the records
+    #in that edge with interfaces that have that account number (so that we can
+    #get both MPLS and internet interfaces).
+    local searchItem=""
+    #The edge router host name.
+    local edge=""
+    #This is where the processing of records starts. Get all of the records in
+    #the digCUST database that have the supplied vrf (the value of the vriable
+    #searchField).
+    local tempSearchResult=$( egrep "\"$searchField\"" $DIGCUSTDB )
+
+    echo $tempSearchResult | $CHECKVRF -v vrf=$searchField -v noascii=$noAscii
+
+    #If the checkvrf.awk script exited with status code 2 then that signals end of program
+    #as the user will need to re-enter input.
+    if (( $? == 2 ))
+    then
+        exit
+    fi
+
+    #Display the csv greeting. The greeting is stored in the file csvgreet and the script
+    #is printgreet.awk (wich you can view for documentation on how it works).
+    $CSVGREET -v vrf=$searchField -v fileDate=$statDate -v noascii=$noAscii $GREETFILE
+    
+    #This while loop is getting its input from the here-doc at the bottom (the output of
+    #the multiline varible tempSearchResult). Each line is read in and the interface and
+    #edge router hostname fields are stored. The interface field is compared against
+    #several different intercace patterns (the explanation of the variable searchItem
+    #above explains why this is done.)
+    while read line
+    do
+        line=${line// /_}
+        line=${line//:::/ }
+        fields=( $( echo "$line") )
+        edge=${fields[0]//\"/}
+        interface=${fields[1]//\"/}
+
+        if [[ $interface =~ $MFRIOS|$SERIALFRIOS|$MFRXR|$SERIALFRXR|Vlan|BVI|$GIGE ]]
+        then
+            searchItem=${fields[2]//\"/}
+            
+            #[spiercecomment]
+            #11-8-2017 - Added condition below to allow CKT IDs to be searched out of descriptions
+            if [[ $searchItem == "N/A" ]] && [[ ${fields[3]//\"/} =~ $CKTID ]]
+            then 
+                searchItem=${BASH_REMATCH[1]}
+            #[/spiercecomment]
+            elif [[ $searchItem == "N/A" ]]
+            then
+                continue
+            fi
+        else
+            searchItem=$searchField
+        fi
+
+        if [[ ! $searchResult ]]
+        then
+            searchResult=$( egrep "$edge.*$searchItem" $DIGCUSTDB )
+        else
+            searchResult=$( echo "$searchResult"; egrep "$edge.*$searchItem" $DIGCUSTDB )
+        fi
+        
+    done <<_EOT_ 
+    $( echo "$tempSearchResult" )
+_EOT_
+
+    searchResult=$( echo "$searchResult" | sort | uniq )
+}
+# end function processCSV()
+#################################################################################
+
+
+
+
+#################################################################################
+# function printError()
+#
+# Parameters:
+#     $1: The error message passed into the function to be displayed.
+#
+# This is a simple function that will display the error message passed to it in red text.
+function printError() {
+    (( ! $noAscii )) && echo -e "\033[31m$1\033[0m" || echo $1
+    usage
+}
+# end function printError()
+#################################################################################
+
+
+
+
+#################################################################################
+# function routePublic()
+#
+# Parameters: None
+#
+# This function will be invoked if the -public flag is set (this can be done by
+# calling the script with the flag and then passing an ip address or by calling the script
+# with only an ip address as the flag). It then takes the ip address and finds the network
+# address of it by taking a netmask and the ip and sending that to ipcalc. The function
+# starts off by using netmask /32 and goes on to /23 trying to find the subnet.
+function routePublic() {
+    ######################################################################
+    # LOCAL CONSTANTS
+    #
+    # The RFC1918 constants initialization are spread out over multiple lines
+    # for readability only.
+    ######################################################################
+
+    #This is the ipcalc script that will be used for finding the network ip of an ip address.
+    local IPCALCSCRIPT="/bin/ipcalc -n"
+
+    #This will be used to match on the pattern for the 8bit RFC subnet 10.0.0.0/8.
+    local RFC_8BIT="^10\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+    RFC_8BIT="$RFC_8BIT(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+    RFC_8BIT="$RFC_8BIT(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])$"
+
+    #This will be used to match on the pattern for the 12bit RFC subnet 172.16.0.0/12.
+    local RFC_12BIT="^172\.(1[6-9]|2[0-9]|3[01])\."
+    RFC_12BIT="$RFC_12BIT(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+    RFC_12BIT="$RFC_12BIT(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])$"
+
+    #This will be used to match on the pattern for the 16bit RFC subnet 192.168.0.0/16.
+    local RFC_16BIT="^192\.168\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
+    RFC_16BIT="$RFC_16BIT(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])$"
+
+    #This constant will just be used to lump all other RFC constants together so that an ip
+    #address can be compared to all of them at once using one constant (also helps with readability).
+    local RFC1918ROUTES="$RFC_8BIT|$RFC_12BIT|$RFC_16BIT"
+
+    ######################################################################
+    # LOCAL VARIABLES
+    ######################################################################
+
+    #The netmask to be used for supplying to ipcalc and to use when searching the digCUST database file.
+    #There will be a loop below that decrements this value up until it hits 22 when it will stop. It will
+    #decrement if the network ip fuond using the supplied ip and current netmask value does not yeild a
+    #search result when searching the digCUST.db file.
+    local cidr=32
+
+    #Variable used to store search results temporarily. If this ever yields anything that is non zero in length
+    #then the global searchResult variable will be set to this value so processing can continue to digCUST.awk.
+    local tempSearchResult=""
+
+    #This will contain the value to be used when searching the digCUST.db file. This will be the result of
+    #the network ip address obtained from ipalc with the mask appended to it. So if an ip address of
+    #40.135.250.101 that is part of 40.135.250.100/30 then ipcalc returns 40.135.250.100 for the network ip and then
+    #the mask is appended at the end and then the digCUST.db file is searched with value 40.135.250.100/30.
+    local searchItem=""
+
+    if [[ $searchField =~ $RFC1918ROUTES ]]
+    then
+        printError "RFC1918 route, $searchField, supplied with no vrf. Please provide vrf tag."
+    else
+        if ! (( $webOutput ))
+        then
+            echo "Searching database using public ip $searchField, this may take a few seconds:"
+        fi
+
+        while (( $cidr > 22 ))
+        do
+            #In the case that the netmask is 32 then that is the subnet that is being searched for so append
+            #/32 to the ip address and use that to search the digCUST.db file.
+            if (( $cidr == 32 ))
+            then
+                searchItem="$searchField"
+            else
+                searchItem=$( $IPCALCSCRIPT $searchField/$cidr | sed -n 's/NETWORK=\(.*\)/\1/gp' )
+            fi
+
+            tempSearchResult=$( egrep "$searchItem/$cidr" $DIGCUSTDB )
+
+            #Search using network ip address and netmask yield a result so set the global searchResult
+            #to this value.
+            if [[ $tempSearchResult ]]
+            then
+                searchResult=$tempSearchResult
+                break
+            else
+                (( --cidr ))
+            fi
+        done
+    fi
+
+    if [[ ! $searchResult ]]
+    then
+        echo "No results found for ip address: $searchField"
+        exit
+    fi
+}
+# end function routePublic()
+#################################################################################
+
+
+
+
+#################################################################################
+# function routePrivate()
+#
+# Parameters:
+#     $1: The vrf used to look up with the supplied ip address.
+#
+# This function will be invoked if the -private:*vrftag* flag is set (there is no implicit version
+# of this, the flag must be used for private routes). It then takes the ip address and finds the network
+# address of it by taking a netmask and the ip and sending that to ipcalc. The function
+# starts off by using netmask /32 and goes on to /8 trying to find the subnet. I also uses the vrf supplied
+# as part of the search to narrow it down to just the vrf supplied because if an RFC1918 route is used then
+# multiple customers could end up coming back as a search result.
+function routePrivate() {
+    local IPCALCSCRIPT="/bin/ipcalc -n"
+
+    local cidr=32
+    local tempSearchResult=""
+    local searchItem=""
+    local checkVrfOutput=""
+    local checkVrfExitStatus=0
+
+
+    #This is where the processing of records starts. Get all of the records in
+    #the digCUST database that have the supplied vrf (the value of the vriable
+    #searchField).
+    tempSearchResult=$( egrep "\"$1\"" $DIGCUSTDB )
+    
+    echo $tempSearchResult | $CHECKVRF -v vrf=$1 -v noascii=$noAscii
+
+    #If the checkvrf.awk script exited with status code 2 then that signals end of program
+    #as the user will need to re-enter input.
+    if (( $? == 2 ))
+    then
+        exit
+    fi
+
+    if ! (( $webOutput ))
+    then
+        if(( $noAscii ))
+        then
+            echo "Searching database using public ip $searchField and vrf $1, this may take a few seconds:"
+        else
+            echo -e "Searching database using public ip $searchField and vrf \033[36m$1\033[0m, this may take a few seconds:"
+        fi
+    fi
+
+    while (( $cidr > 8 ))
+    do
+        if (( $cidr == 32 ))
+        then
+            searchItem="$searchField"
+        else
+            searchItem=$( $IPCALCSCRIPT $searchField/$cidr | sed -n 's/NETWORK=\(.*\)/\1/gp' )
+        fi
+
+        searchItem="$1.*$searchItem"
+        tempSearchResult=$( egrep "$searchItem/$cidr" $DIGCUSTDB )
+
+        if [[ $tempSearchResult ]]
+        then
+            searchResult=$tempSearchResult
+            break
+        else
+            (( --cidr ))
+        fi
+    done
+
+    if [[ ! $searchResult ]]
+    then
+        echo "No results found for ip address: $searchField"
+        exit
+    fi
+}
+# end function routePrivate()
+#################################################################################
+
+#################################################################################
+# BEGIN SCRIPT PROCESSING
+#################################################################################
+
+main $*
