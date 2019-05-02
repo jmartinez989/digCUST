@@ -67,6 +67,13 @@ webOutput=0
 #Flag to determine if ascii formatting should be used (users will not be made
 #aware of this flag, this is only for any webscripts that run.)
 noAscii=0
+
+#Flag to determine if the output will be in JSON format. This will be used with
+#any scripts that use the web version of digCUST via the exposed API for it. The
+#API for it will be housed at enterprise.windstream.com (users will not be amde
+#aware of this flag, this is only for API)
+JSONOutput=0
+
 #################################################################################
 # FUNCTIONS
 #################################################################################
@@ -112,6 +119,9 @@ function main() {
         if (( $rawOutput ))
         then
             echo $searchResult | sed 's/\" \"/\"\n\"/g'
+        elif (( $JSONOutput ))
+        then
+            echo "$searchResult" | $DIGCUST -F":::" -v json=$JSONOutput
         else
             if ! (( $csv ))
             then
@@ -210,6 +220,9 @@ function checkInput() {
     #REGEX for web output.
     local WEBREGEX="(^| )\-[wW][eE][bB]($| )"
 
+    #REGEX for JSON output.
+    local JSONREGEX="(^| )\-[jJ][sS][oO][nN]($| )"
+
     #REGEX for matching all options simultaniously.
     local ALLOPTIONSREGEX="$PRIVATEREGEX|$CSVREGEX|$NOASCIIREGEX|$RAWREGEX|$WEBREGEX"
 
@@ -220,6 +233,7 @@ function checkInput() {
     [[ $* =~ $RAWREGEX ]] && rawOutput=1
     [[ $* =~ $WEBREGEX ]] && webOutput=1
     [[ $* =~ $CSVREGEX ]] && csv=1
+    [[ $* =~ $JSONREGEX ]] && JSONOutput=1
 
     #If no arguments passed then display usage.
     if (( $# == 0 ))
@@ -235,11 +249,7 @@ function checkInput() {
 
     if (( $# == 1 ))
     then
-        if [[ $* =~ $WEBREGEX ]]
-        then
-            webOutput=0
-            usage
-        elif [[ $1 =~ $ALLOPTIONSREGEX ]]
+        if [[ $1 =~ $ALLOPTIONSREGEX ]]
         then
             usage
         elif [[ $1 =~ $IPREGEX ]]
@@ -262,7 +272,7 @@ function checkInput() {
             then
                 if (( $rawOutput || $webOutput ))
                 then
-                    printError "Cannot combine options -csv with either -raw or -web."
+                    printError "Cannot combine option -csv with either -raw, -web or -json."
                 fi
                 
                 shift

@@ -82,18 +82,18 @@ BEGIN {
     dot1q[1] = ""
 
     #This list of gsub() calls are to replace the " characters from all fields.
-    gsub(/"/, "", vrf)
-    gsub(/"/, "", status)
-    gsub(/"/, "", description)
-    gsub(/"/, "", device)
-    gsub(/"/, "", account)
-    gsub(/"/, "", wan)
-    gsub(/"/, "", qos)
-    gsub(/"/, "", interface)
-    gsub(/"/, "", lan)
-    gsub(/"/, "", intip)
-    gsub(/"/, "", cpe)
-    gsub(/"/, "", vlans)
+    gsub("\"", "", vrf)
+    gsub("\"", "", status)
+    gsub("\"", "", description)
+    gsub("\"", "", device)
+    gsub("\"", "", account)
+    gsub("\"", "", wan)
+    gsub("\"", "", qos)
+    gsub("\"", "", interface)
+    gsub("\"", "", lan)
+    gsub("\"", "", intip)
+    gsub("\"", "", cpe)
+    gsub("\"", "", vlans)
 
     if(csv) {
         gsub(/,/, ";", lan)
@@ -104,6 +104,20 @@ BEGIN {
         }
                
         print device "," interface "," account "," description "," vrf "," wan "," lan "," qos "," status "," intip "," cpe "," vlans
+    } else if(json) {
+        jsonstring = "{\n"
+        jsonstring = jsonstring "    \"device\": " device ",\n"
+        jsonstring = jsonstring "    \"interface\": " interface ",\n"
+        jsonstring = jsonstring "    \"account\": " account ",\n"
+        jsonstring = jsonstring "    \"description\": " description ",\n"
+        jsonstring = jsonstring "    \"vrf\": " vrf ",\n"
+        jsonstring = jsonstring "    \"wan\": " wan ",\n"
+        jsonstring = jsonstring "    \"lan\": " lan ",\n"
+        jsonstring = jsonstring "    \"qos\": " qos ",\n"
+        jsonstring = jsonstring "    \"status\": " status ",\n"
+        jsonstring = jsonstring "}"
+
+        print jsonstring
     } else {
         lines[3] = INDENT "Interface: " interface
 
@@ -133,6 +147,8 @@ BEGIN {
         print ""
     }
 }
+# END MAIN INPUT LOOP
+#############################################################################
 
 function formatAscii(linesArr) {
     linesArr[1] = U description TERM " %" CYAN account TERM "%"
@@ -214,5 +230,3 @@ function formatWeb(linesArr) {
 
     lines[4] = INDENT "QoS Policy: " HTMLFONTYELLOW qos HTMLENDFONT
 }
-# END MAIN INPUT LOOP
-#############################################################################

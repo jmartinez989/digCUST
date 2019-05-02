@@ -49,7 +49,7 @@ NF == 0 {
 #This will check every record and see if the vrf field is the same as the vrf passed in as a
 #variable.
 {
-    vrfField = gensub(/"/, "", "g", $5)
+    vrfField = gensub("\"", "", "g", $5)
 
     if(vrfField != vrf) {
         printErrorMessage()
