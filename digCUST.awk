@@ -43,6 +43,12 @@ BEGIN {
     #The max number of output lines per customer record.
     NUMLINES = 6
 
+    #Buffer for JSON output.
+    jsonlines[1] = ""
+
+    #Index for the JSON buffer.
+    jsonlinesindex = 1
+
     if(web) {
         noascii = 0
     }
@@ -105,19 +111,17 @@ BEGIN {
                
         print device "," interface "," account "," description "," vrf "," wan "," lan "," qos "," status "," intip "," cpe "," vlans
     } else if(json) {
-        jsonstring = "{\n"
-        jsonstring = jsonstring "    \"device\": " device ",\n"
-        jsonstring = jsonstring "    \"interface\": " interface ",\n"
-        jsonstring = jsonstring "    \"account\": " account ",\n"
-        jsonstring = jsonstring "    \"description\": " description ",\n"
-        jsonstring = jsonstring "    \"vrf\": " vrf ",\n"
-        jsonstring = jsonstring "    \"wan\": " wan ",\n"
-        jsonstring = jsonstring "    \"lan\": " lan ",\n"
-        jsonstring = jsonstring "    \"qos\": " qos ",\n"
-        jsonstring = jsonstring "    \"status\": " status ",\n"
-        jsonstring = jsonstring "}"
-
-        print jsonstring
+        addLineToJSONBuffer("{")
+        addLineToJSONBuffer("    \"device\": " device ",")
+        addLineToJSONBuffer("    \"interface\": " interface ",")
+        addLineToJSONBuffer("    \"account\": " account ",")
+        addLineToJSONBuffer("    \"description\": " description ",")
+        addLineToJSONBuffer("    \"vrf\": " vrf ",")
+        addLineToJSONBuffer("    \"wan\": " wan ",")
+        addLineToJSONBuffer("    \"lan\": " lan ",")
+        addLineToJSONBuffer("    \"qos\": " qos ",")
+        addLineToJSONBuffer("    \"status\": " status)
+        addLineToJSONBuffer("},")
     } else {
         lines[3] = INDENT "Interface: " interface
 
@@ -149,6 +153,17 @@ BEGIN {
 }
 # END MAIN INPUT LOOP
 #############################################################################
+
+END {
+    if(json) {
+        numjsonlines = arrayLength(jsonlines)
+        jsonlines[numjsonlines] = "}"
+        
+        for( i = 1; i <= numjsonlines; i++) {
+            print jsonlines[i]
+        }
+    }
+}
 
 function formatAscii(linesArr) {
     linesArr[1] = U description TERM " %" CYAN account TERM "%"
@@ -229,4 +244,16 @@ function formatWeb(linesArr) {
     }
 
     lines[4] = INDENT "QoS Policy: " HTMLFONTYELLOW qos HTMLENDFONT
+}
+
+function addLineToJSONBuffer(line) {
+    jsonlines[jsonlinesindex++] = line
+}
+
+function arrayLength(array,    count, i) {
+    for(i in array) {
+        count++
+    }
+
+    return count
 }

@@ -224,7 +224,7 @@ function checkInput() {
     local JSONREGEX="(^| )\-[jJ][sS][oO][nN]($| )"
 
     #REGEX for matching all options simultaniously.
-    local ALLOPTIONSREGEX="$PRIVATEREGEX|$CSVREGEX|$NOASCIIREGEX|$RAWREGEX|$WEBREGEX"
+    local ALLOPTIONSREGEX="$PRIVATEREGEX|$CSVREGEX|$NOASCIIREGEX|$RAWREGEX|$WEBREGEX|$JSONREGEX"
 
     #In this section we want to check for any switches that will need to be processed
     #before all others no matter the order so the argument list is checked and the appropriate
@@ -353,6 +353,9 @@ function checkInput() {
                     webOutput=0
                 fi
 
+                shift
+            elif [[ $1 =~ $JSONREGEX ]]
+            then
                 shift
             elif [[ $1 =~ ^\-.*$ ]]
             then
