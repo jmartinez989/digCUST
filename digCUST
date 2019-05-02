@@ -11,7 +11,7 @@ IPREGEX="$IPREGEX(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\."
 IPREGEX="$IPREGEX(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\$"
 
 #The directory for all files and porgrams this script will run.
-DIGCUSTDIR="/home/e0163688/Scripts/DigCust"
+DIGCUSTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 #The digCUST database file.
 DIGCUSTDB="$DIGCUSTDIR/digCUST.db"
