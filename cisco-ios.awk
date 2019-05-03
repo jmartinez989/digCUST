@@ -477,7 +477,7 @@ function getBroadcastIp(ipaddress, mask,    broadcastip, command) {
 # This function will be used to take an ip address and turn it into a decimal number. This will be usefull in determining
 # if an ip address falls witin a range of ips (like if an ip falls between a network ip and a broadcast ip). The formula for
 # this is the one below:
-#     (first octet * 256³) + (second octet * 256²) + (third octet * 256) + (fourth octet)
+#     (first octet * 256ï¿½) + (second octet * 256ï¿½) + (third octet * 256) + (fourth octet)
 #
 # Parameters:
 #     ipaddress: The ip address that will be converted to a decimal number.
@@ -568,6 +568,10 @@ function printDBFile() {
 
                 if(interfaces[interfaceName".vrf"] == "") {
                     interfaces[interfaceName".vrf"] = "N/A"
+                }
+
+                if(interfaces[interfaceName".lan"] == "") {
+                    interfaces[interfaceName".lan"] = "N/A"
                 }
 
                 #This section formats the information of an interface and appends it all to a string. There are several fields

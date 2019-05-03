@@ -112,15 +112,15 @@ BEGIN {
         print device "," interface "," account "," description "," vrf "," wan "," lan "," qos "," status "," intip "," cpe "," vlans
     } else if(json) {
         addLineToJSONBuffer("{")
-        addLineToJSONBuffer("    \"device\": " device ",")
-        addLineToJSONBuffer("    \"interface\": " interface ",")
-        addLineToJSONBuffer("    \"account\": " account ",")
-        addLineToJSONBuffer("    \"description\": " description ",")
-        addLineToJSONBuffer("    \"vrf\": " vrf ",")
-        addLineToJSONBuffer("    \"wan\": " wan ",")
-        addLineToJSONBuffer("    \"lan\": " lan ",")
-        addLineToJSONBuffer("    \"qos\": " qos ",")
-        addLineToJSONBuffer("    \"status\": " status)
+        addLineToJSONBuffer("    \"device\": \"" device "\",")
+        addLineToJSONBuffer("    \"interface\": \"" interface "\",")
+        addLineToJSONBuffer("    \"account\": \"" account "\",")
+        addLineToJSONBuffer("    \"description\": \"" description "\",")
+        addLineToJSONBuffer("    \"vrf\": \"" vrf "\",")
+        addLineToJSONBuffer("    \"wan\": \"" wan "\",")
+        addLineToJSONBuffer("    \"lan\": \"" lan "\",")
+        addLineToJSONBuffer("    \"qos\": \"" qos "\",")
+        addLineToJSONBuffer("    \"status\": \"" status "\"")
         addLineToJSONBuffer("},")
     } else {
         lines[3] = INDENT "Interface: " interface
