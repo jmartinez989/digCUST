@@ -235,7 +235,7 @@ function checkInput() {
     [[ $* =~ $CSVREGEX ]] && csv=1
     
     #Want to remove ascii formating if JSON output is requested.
-    if [[ $* =~ $JSONREGEX ]
+    if [[ $* =~ $JSONREGEX ]]
     then
         JSONOutput=1
         noAscii=1
@@ -345,7 +345,7 @@ function checkInput() {
                 fi
 
                 shift
-                
+
             #In this case there is nothing to be done as the option would have been set from the
             #check above so just skip this argument.
             elif [[ $1 =~ $NOASCIIREGEX ]]
