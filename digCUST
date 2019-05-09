@@ -233,7 +233,13 @@ function checkInput() {
     [[ $* =~ $RAWREGEX ]] && rawOutput=1
     [[ $* =~ $WEBREGEX ]] && webOutput=1
     [[ $* =~ $CSVREGEX ]] && csv=1
-    [[ $* =~ $JSONREGEX ]] && JSONOutput=1
+    
+    #Want to remove ascii formating if JSON output is requested.
+    if [[ $* =~ $JSONREGEX ]
+    then
+        JSONOutput=1
+        noAscii=1
+    fi
 
     #If no arguments passed then display usage.
     if (( $# == 0 ))
@@ -270,7 +276,7 @@ function checkInput() {
         do
             if [[ $1 =~ $CSVREGEX ]]
             then
-                if (( $rawOutput || $webOutput ))
+                if (( $rawOutput || $webOutput || $JSONOutput ))
                 then
                     printError "Cannot combine option -csv with either -raw, -web or -json."
                 fi
@@ -332,13 +338,14 @@ function checkInput() {
                 then
                     webOutput=0
                 fi
-                
-                if (( $csv ))
+
+                if (( $JSONOutput ))
                 then
-                    printError "Cannot combine options -csv with either -raw or -web."
+                    JSONOutput=0
                 fi
 
                 shift
+                
             #In this case there is nothing to be done as the option would have been set from the
             #check above so just skip this argument.
             elif [[ $1 =~ $NOASCIIREGEX ]]
@@ -352,10 +359,25 @@ function checkInput() {
                 then
                     webOutput=0
                 fi
+                
+                if (( $JSONOutput ))
+                then
+                    webOutput=0
+                fi
 
                 shift
             elif [[ $1 =~ $JSONREGEX ]]
             then
+                if (( $rawOutput ))
+                then
+                    JSONOutput=0
+                fi
+
+                if (( $webOutput ))
+                then
+                    webOutput=0
+                fi
+
                 shift
             elif [[ $1 =~ ^\-.*$ ]]
             then
