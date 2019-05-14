@@ -609,7 +609,7 @@ function routePublic() {
     then
         printError "RFC1918 route, $searchField, supplied with no vrf. Please provide vrf tag."
     else
-        if ! (( $webOutput ))
+        if ! (( $webOutput )) && ! (( $JSONOutput ))
         then
             echo "Searching database using public ip $searchField, this may take a few seconds:"
         fi
@@ -687,13 +687,13 @@ function routePrivate() {
         exit
     fi
 
-    if ! (( $webOutput ))
+    if ! (( $webOutput )) && ! (( $JSONOutput ))
     then
         if(( $noAscii ))
         then
-            echo "Searching database using public ip $searchField and vrf $1, this may take a few seconds:"
+            echo "Searching database using private ip $searchField and vrf $1, this may take a few seconds:"
         else
-            echo -e "Searching database using public ip $searchField and vrf \033[36m$1\033[0m, this may take a few seconds:"
+            echo -e "Searching database using private ip $searchField and vrf \033[36m$1\033[0m, this may take a few seconds:"
         fi
     fi
 
