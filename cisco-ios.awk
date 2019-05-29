@@ -247,8 +247,8 @@ BEGIN {
     
     network = ipToDecimal(getNetworkIp(intIp, intMask))
     broadcast = ipToDecimal(getBroadcastIp(intIp, intMask))
-    wan = getNetworkIp(intIp, intMask) "/" getCIDRMask(intIp, intMask) "%" network "_" broadcast "%"
-    wanIpCIDR = intIp "/" getCIDRMask(intIp, intMask)
+    wan = getNetworkIp(intIp, intMask) "/" getCIDRMask(intMask) "%" network "_" broadcast "%"
+    wanIpCIDR = intIp "/" getCIDRMask(intMask)
     
     interfaces[intName".wanIpCIDR"] = wanIpCIDR
 
@@ -319,11 +319,11 @@ BEGIN {
     networkBroadcastString = ""
 
     if(vrfLabel != "") {
-        lanNetwork = $5 "/" getCIDRMask($5, $6)
+        lanNetwork = $5 "/" getCIDRMask($6)
         nextHop = $7
         nextHop2 = $8
     } else {
-        lanNetwork = $3 "/" getCIDRMask($3, $4)
+        lanNetwork = $3 "/" getCIDRMask($4)
         nextHop = $5
         nextHop2 = $6
     }
@@ -367,6 +367,8 @@ BEGIN {
                         interfaces[intName".cpeIp"] = nexthop
                         interfaces[intName".lan"] = interfaces[intName".lan"] "," lanNetwork
                         interfaces[intName".lan"] = removeTrailingAndLeadingCommas(interfaces[intName".lan"])
+                        # Since the interface for the route was found we can just move on to the next input record.
+                        next
                     }
                 }
             }
@@ -383,29 +385,49 @@ BEGIN {
 ##########################################################################################
 # Start of getCIDRMask() function
 #
-# This function will be used to get the CIDR mask notation of the subnet mask of an interface. What it
-# will do is call ipcalc in /bin and run it with the parameters ipaddress and mask with the -p switch
-# which will generate the CIDR mask with syntax "PREFIX=CIDR" where CIDR will be the integer 0 to 32.
+# This function will be used to get the CIDR mask notation of the subnet mask of an interface. What
+# it does is turns the ip format of the net mask into a decimal and then takes a bit mask that starts
+# at 2^31 (only left most bit is on) and then does a bitwise AND on the netmask and if the value is
+# greater than zero then it counts 1 bit on for the netmask. It then decrements the the exponent by
+# 1 and does this again until the exponent is less than 0. The number of bits counted as on will be
+# returned as the CIDR notation mask.
 #
 # Parameters:
-#     ipaddress: The ip address of the interface (could also be used for any ip address, this function
-#     will mainly be used to get the CIDR of interfaces though).
-#
-#     mask: The subnet mask if the ipaddress in ip notation.
+#     mask: The subnet mask of the ipaddress in ip notation.
 #
 # Local Variables:
 #     cidrmask: This variable will be used to hold the value of the calculated CIDR mask and will be the
 #     return value for this function.
 #
-#     command: This variable will be used to store the ipcalc command as a string so that it can be piped to 
-#     getline and will then be stored in cidrmask.
-function getCIDRMask(ipaddress, mask,    cidrmask, command) {
-    command = "/bin/ipcalc -p " ipaddress " " mask " | sed 's/PREFIX=//g'"
-    command | getline cidrmask
+#     maskDecimal: The subnet mask in decimal format.
+#
+#     maskBitExponent: This will be used to dtermine what the bitmask will be to apply to the netmask
+#                      to determin how many bits in the netmask are on which will indicate the CIDR
+#                      mask. It sarts with value of 31 (left most bit on when doing 2^31) and then
+#                      goes down by 1 until it gets below 0.
+#
+#     bitsOn: The number of bits in the netmask that are on to indicat CIDR mask.
+#
+#     bitMask: The bitMask that applies to the netmask to count if a bit is on. It starts with the left most
+#              bit of a 32 bit integer as 1 (2^31). The exponent for the calcuation of the bitmask is decreased
+#              by 1 until the exponent is below zero. This simulates a right shift of the on bit of the mask.
+function getCIDRMask(mask,    maskDeciaml, maskBitExponent, bitsOn, bitMask) {
+    maskDeciaml = ipToDecimal(mask)
+    maskBitExponent = 31
+    bitsOn = 0
+    bitMask = 0
 
-    close(command)
+    while(maskBitExponent >= 0) {
+        bitMask = 2 ** maskBitExponent
 
-    return cidrmask
+        if(and(maskDeciaml, bitMask) > 0) {
+            bitsOn++
+        }
+
+        maskBitExponent--
+    }
+
+    return bitsOn
 }
 # End of getCIDRMask() function
 ##########################################################################################
@@ -413,28 +435,27 @@ function getCIDRMask(ipaddress, mask,    cidrmask, command) {
 ##########################################################################################
 # Start of getNetworkIp() function
 #
-# This function will be used to get the netwok ip of the ip address of an interface. What it  will do is call ipcalc
-# in /bin and run it with the parameters ipaddress and mask with the -n switch which will generate the CIDR mask with
-# syntax "NETWORK=X.X.X.X" where "X.X.X.X" will be the network ip address of the ipaddress and subnet mask passed in.
+# This function will be used to get the netwok ip of the ip address of an interface. What it will do
+# is take an ip address and subnet mask, convert them both to decimal format, do a bitwise AND of both
+# values and then covert that value back to ip address format which will be the network ip.
 #
 # Parameters:
 #     ipaddress: The ip address of the interface (could also be used for any ip address, this function
 #     will mainly be used to get the network ip of interfaces though).
 #
-#     mask: The subnet mask if the ipaddress in ip notation.
+#     mask: The subnet mask of the ipaddress in ip notation.
 #
 # Local Variables:
 #     networkip: This variable will be used to hold the value of the calculated network ip address and will be the
 #     return value for this function.
 #
-#     command: This variable will be used to store the ipcalc command as a string so that it can be piped to 
-#     getline and will then be stored in networkip.
-#     formattedString: This will be the resulting string that will be free of commas. This will be this function's return value.
-function getNetworkIp(ipaddress, mask,    networkip, command) {
-    command = "/bin/ipcalc -n " ipaddress " " mask " | sed 's/NETWORK=//g'"
-    command | getline networkip
-
-    close(command)
+#     maskDecimal: The decimal representation of the net mask.
+#
+#     ipDecimal: The decimal representation of the ip address.
+function getNetworkIp(ipaddress, mask,    networkip, maskDecimal, ipDecimal) {
+    maskDecimal = ipToDecimal(mask)
+    ipDecimal = ipToDecimal(ipaddress)
+    networkip = decimalToIP(and(ipDecimal, maskDecimal))
 
     return networkip
 }
@@ -444,15 +465,17 @@ function getNetworkIp(ipaddress, mask,    networkip, command) {
 ##########################################################################################
 # Start of getBroadcastIp() function
 #
-# This function will be used to get the broadcast ip of the ip address of an interface. What it  will do is call ipcalc
-# in /bin and run it with the parameters ipaddress and mask with the -b switch which will generate the CIDR mask with
-# syntax "BROADCAST=X.X.X.X" where "X.X.X.X" will be the broadcast ip address of the ipaddress and subnet mask passed in.
+# This function will be used to get the broadcast ip of the ip address of an interface. What it will do
+# is take an ip address and subnet mask, convert them both to decimal format, then it will take the
+# value of the mask and convert it to its complement and then the complement mask and the decimal ip
+# have a bitwise OR operation done on them and then the result is turned back into ip address notation
+# which will be the brodcast ip.
 #
 # Parameters:
 #     ipaddress: The ip address of the interface (could also be used for any ip address, this function
 #     will mainly be used to get the broadcast ip of interfaces though).
 #
-#     mask: The subnet mask if the ipaddress in ip notation.
+#     mask: The subnet mask of the ipaddress in ip notation.
 #
 # Local Variables:
 #     broadcastip: This variable will be used to hold the value of the calculated broadcast ip address and will be the
@@ -460,13 +483,13 @@ function getNetworkIp(ipaddress, mask,    networkip, command) {
 #
 #     command: This variable will be used to store the ipcalc command as a string so that it can be piped to 
 #     getline and will then be stored in broadcastip.
-function getBroadcastIp(ipaddress, mask,    broadcastip, command) {
-    command = "/bin/ipcalc -b " ipaddress " " mask " | sed 's/BROADCAST=//g'"
-    command | getline broadcastip
+function getBroadcastIp(ipaddress, mask,    octet1, octet2, octet3, octet4, bitMask, maskCompliment) {
+    maskDecimal = ipToDecimal(mask)
+    maskCompliment = compl(maskDecimal)
+    ipDecimal = ipToDecimal(ipaddress)
+    networkip = decimalToIP(or(ipDecimal, maskCompliment))
 
-    close(command)
-
-    return broadcastip
+    return networkip
 }
 # End of getBroadcastIp() function
 ##########################################################################################
@@ -477,7 +500,7 @@ function getBroadcastIp(ipaddress, mask,    broadcastip, command) {
 # This function will be used to take an ip address and turn it into a decimal number. This will be usefull in determining
 # if an ip address falls witin a range of ips (like if an ip falls between a network ip and a broadcast ip). The formula for
 # this is the one below:
-#     (first octet * 256�) + (second octet * 256�) + (third octet * 256) + (fourth octet)
+#     (first octet * 256^3) + (second octet * 256^2) + (third octet * 256) + (fourth octet)
 #
 # Parameters:
 #     ipaddress: The ip address that will be converted to a decimal number.
@@ -507,6 +530,46 @@ function ipToDecimal(ipaddress,    octets, decimalVal, power) {
 ##########################################################################################
 
 ##########################################################################################
+# Start of decimalToIP() function
+#
+# The purpose of this function is to take a decimal value and turn it into an ip address.
+# The way this is done is to take a bit mask with 32 bits and turn all 8 left most bits
+# on. When thi sis done do a bitwise AND of the decimal number and the bit mask. After that
+# shift the bits in the bit mask by 8 bits and do this process again until 4 bits have been
+# acquired.
+#
+# Parameters:
+#     decimalIp: Decimal number representing the ip address.
+#
+# Local Variables:
+#     octetN: SShortend for N being values 1-4. These will be the values that will make up
+#             the ip address.
+#
+#     bitMask: The mask to use to determin each octet.
+function decimalToIP(decimalIp,     octet1, octet2, octet3, octet4, bitMask) {
+    # 8 left most bits set to on (11111111000000000000000000000000), will get shifted right
+    # for other octets.
+    bitMask = 4278190080
+
+    # Bitwise AND of mask and decimal value has to be right shifted to get the correct value
+    # of between 0 and 255 because if that is not done then you will get an invalid value for
+    # an octet. So for the first octet you have to shift by 24 bits to the right, the second
+    # octet shift by 16, the third by 8 and since the last octet will be the right most 8
+    # bits of the decimal IP there is no need to shift.
+    octet1 = rshift(and(decimalIp, bitMask), 24)
+    bitMask = rshift(bitMask, 8)
+    octet2 = rshift(and(decimalIp, bitMask), 16)
+    bitMask = rshift(bitMask, 8)
+    octet3 = rshift(and(decimalIp, bitMask), 8)
+    bitMask = rshift(bitMask, 8)
+    octet4 = and(decimalIp, bitMask)
+
+    return octet1"."octet2"."octet3"."octet4
+}
+# End of ipToDecimal() function
+##########################################################################################
+
+##########################################################################################
 # Start of removeTrailingAndLeadingCommas() function
 #
 # This function will simply just remove any trailing or leading commas from a string. Made this a function because it was 
@@ -529,9 +592,6 @@ function removeTrailingAndLeadingCommas(commaString,    formattedString) {
 #
 # No Parameters or return values.
 function printDBFile() {
-    intRecord = ""
-    digCustFile = "/home/e0163688/Scripts/DigCust/digCUST.db-tmp"
-
     for(vrfTag in vrfTags) {
         numInterfaces = split(vrfTags[vrfTag], vrfInterfaces, ",")
 
@@ -590,6 +650,7 @@ function printDBFile() {
                 intRecord = intRecord ":::\"" interfaces[interfaceName".cpeIp"] "\"" 
                 intRecord = intRecord ":::\"" interfaces[interfaceName".vlanTags"] "\""
 
+                #digCustFile will be an argument passed into the script via -v digCustFile=*filename*
                 print intRecord >> digCustFile
             }
         }

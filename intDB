@@ -4,11 +4,11 @@
 # Constants to define directories where the resources
 # will reside.
 #####################################################
-DIGCUSTDIR="/home/e0163688/Scripts/DigCust"
+DIGCUSTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LOOKDB="$DIGCUSTDIR/digCUST.db"
-CONFIGDIRIOS="/home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs"
-CONFIGDIRXR="/home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs"
-CONFIGDIRJUNIPER="/home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs"
+CONFIGDIRIOS="$DIGCUSTDIR/Resources/DeviceConfigs/cisco-ios/flat-configs"
+CONFIGDIRXR="$DIGCUSTDIR/Resources/DeviceConfigs/cisco-xr/flat-configs"
+CONFIGDIRJUNIPER="$DIGCUSTDIR/Resources/DeviceConfigs/juniper/flat-configs"
 IOSDB="$DIGCUSTDIR/iosrouters.db"
 XRDB="$DIGCUSTDIR/xrrouters.db"
 JUNIPERDB="$DIGCUSTDIR/juniperrouters.db"
@@ -20,26 +20,27 @@ echo "Creating temporary database file...."
 > "${LOOKDB}-tmp"
 
 echo -e "\nSynchronizing cisco-ios configs..."
-cp -r /opt/rancid/var/cisco-ios/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/
+cp -r /opt/rancid/var/cisco-ios/flat-configs/ $DIGCUSTDIR/Resources/DeviceConfigs/cisco-ios/
 
 echo -e "\nSynchronizing cisco-xr configs..."
-cp -r /opt/rancid/var/cisco-xr/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/
+cp -r /opt/rancid/var/cisco-xr/flat-configs/ $DIGCUSTDIR/Resources/DeviceConfigs/cisco-xr/
 
 echo -e "\nSynchronizing juniper configs..."
-cp -r /opt/rancid/var/juniper/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/
+cp -r /opt/rancid/var/juniper/flat-configs/ $DIGCUSTDIR/Resources/DeviceConfigs/juniper/
 
+#Right now these are not used but they might be in the future so put them in as part of the copy over.
 echo -e "\nSynchronizing alu configs...\n"
 cp -r /opt/rancid/var/alu-7750/flat-configs/ /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs
 
 echo -e "Cleaning up unneeded files in configuration directories...\n\n"
 
-rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-ios/flat-configs/tmp
+rm -rf $DIGCUSTDIR/Resources/DeviceConfigs/cisco-ios/flat-configs/*.new $DIGCUSTDIR/Resources/DeviceConfigs/cisco-ios/flat-configs/CVS $DIGCUSTDIR/Resources/DeviceConfigs/cisco-ios/flat-configs/tmp
 
-rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/cisco-xr/flat-configs/tmp
+rm -rf $DIGCUSTDIR/Resources/DeviceConfigs/cisco-xr/flat-configs/*.new $DIGCUSTDIR/Resources/DeviceConfigs/cisco-xr/flat-configs/CVS $DIGCUSTDIR/Resources/DeviceConfigs/cisco-xr/flat-configs/tmp
 
-rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/tmp /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/fixed
+rm -rf $DIGCUSTDIR/Resources/DeviceConfigs/juniper/flat-configs/*.new $DIGCUSTDIR/Resources/DeviceConfigs/juniper/flat-configs/CVS $DIGCUSTDIR/Resources/DeviceConfigs/juniper/flat-configs/tmp /home/e0163688/Scripts/Resources/DeviceConfigs/juniper/flat-configs/fixed
 
-rm -rf /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs/*.new /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs/CVS /home/e0163688/Scripts/Resources/DeviceConfigs/alu-7750/flat-configs/tmp
+rm -rf $DIGCUSTDIR/Resources/DeviceConfigs/alu-7750/flat-configs/*.new $DIGCUSTDIR/Resources/DeviceConfigs/alu-7750/flat-configs/CVS $DIGCUSTDIR/Resources/DeviceConfigs/alu-7750/flat-configs/tmp
 
 #####################################################
 # Creating db files for routers that are up.
@@ -57,21 +58,21 @@ echo -e "Stating digCUST database build...\n"
 cat $IOSDB | while read line
 do
    echo Processing file "$CONFIGDIRIOS/"$line"...."
-   /home/e0163688/Scripts/DigCust/cisco-ios.awk "$CONFIGDIRIOS/"$line
+   $DIGCUSTDIR/cisco-ios.awk -v digCustFile="${LOOKDB}-tmp" "$CONFIGDIRIOS/"$line
    echo
 done
 
 cat $XRDB | while read line
 do
    echo Processing file "$CONFIGDIRXR/"$line"...."
-   /home/e0163688/Scripts/DigCust/cisco-xr.awk "$CONFIGDIRXR/"$line
+   $DIGCUSTDIR/cisco-xr.awk -v digCustFile="${LOOKDB}-tmp" "$CONFIGDIRXR/"$line
    echo
 done
 
 cat $JUNIPERDB | while read line
 do
      echo Processing file "$CONFIGDIRJUNIPER/"$line
-    /home/e0163688/Scripts/DigCust/juniper.awk "$CONFIGDIRJUNIPER/"$line
+    $DIGCUSTDIR/juniper.awk -v digCustFile="${LOOKDB}-tmp" "$CONFIGDIRJUNIPER/"$line
     echo
 done
 
