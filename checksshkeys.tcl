@@ -15,7 +15,7 @@ expect {
     }
 }
 
-expect {ltrkarkvm066:DigCust \$}
+expect {ltrkarkvm066:[dD]igC[uU][sS][tT] \$}
 
 send "ssh admin@enterprise.windstream.com\n"
 
@@ -34,7 +34,7 @@ expect {
     }
 }
 
-expect {ltrkarkvm066:DigCust \$}
+expect {ltrkarkvm066:[dD]igC[uU][sS][tT] \$}
 
 send "ssh g9983898@ltrkarkvm408\n"
 
@@ -44,7 +44,7 @@ expect {
         exp_continue
     }
 
-    "ltrkarkvm408:~ \$" {
+    "ltrkarkvm408:~" {
         send "exit\n"
     }
 
@@ -53,4 +53,4 @@ expect {
     }
 }
 
-expect {ltrkarkvm066:DigCust \$}
+expect {ltrkarkvm066:[dD]igC[uU][sS][tT] \$}
