@@ -34,4 +34,21 @@ expect {
     }
 }
 
+send "ssh g9983898@ltrkarkvm408\n"
+
+expect {
+    "(yes/no)" {
+        send "yes\n"     
+        exp_continue
+    }
+
+    "ltrkarkvm408:~ \$" {
+        send "exit\n"
+    }
+
+    timeout {
+        puts "Timeout"
+    }
+}
+
 expect {ltrkarkvm066:DigCust \$}
