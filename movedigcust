@@ -11,11 +11,7 @@ cp $DIGCUSTDIR/digCUST.db $TEMPDIR
 cp $DIGCUSTDIR/printgreet.awk $TEMPDIR
 cp $DIGCUSTDIR/usagefile $TEMPDIR
 
-#sed -i 's/DIGCUSTDIR=.*/DIGCUSTDIR=\"\/home\/administrator\/DigCust\"/' $TEMPDIR/digCUST
-#scp $TEMPDIR/* administrator@10.140.41.58:/home/administrator/DigCust
-
 $DIGCUSTDIR/checksshkeys.tcl
-sed -i 's/DIGCUSTDIR=.*/DIGCUSTDIR=\"\/home\/admin\/DigCust\"/' $TEMPDIR/digCUST
 scp $TEMPDIR/* admin@enterprise-dev.windstream.com:/home/admin/DigCust
 scp $TEMPDIR/* admin@enterprise.windstream.com:/home/admin/DigCust
 scp $TEMPDIR/* g9983898@ltrkarkvm408:/home/g9983898/Scripts/digCust
