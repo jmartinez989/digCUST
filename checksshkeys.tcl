@@ -34,6 +34,8 @@ expect {
     }
 }
 
+expect {ltrkarkvm066:DigCust \$}
+
 send "ssh g9983898@ltrkarkvm408\n"
 
 expect {
