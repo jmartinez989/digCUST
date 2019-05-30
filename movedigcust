@@ -18,5 +18,6 @@ $DIGCUSTDIR/checksshkeys.tcl
 sed -i 's/DIGCUSTDIR=.*/DIGCUSTDIR=\"\/home\/admin\/DigCust\"/' $TEMPDIR/digCUST
 scp $TEMPDIR/* admin@enterprise-dev.windstream.com:/home/admin/DigCust
 scp $TEMPDIR/* admin@enterprise.windstream.com:/home/admin/DigCust
+scp $TEMPDIR/* g9983898@ltrkarkvm408:/home/g9983898/Scripts/digCust
 
 rm -r $TEMPDIR
